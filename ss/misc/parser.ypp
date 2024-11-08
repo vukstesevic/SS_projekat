@@ -1,0 +1,213 @@
+%{
+  #include <vector>
+  #include <cstdio>
+  #include <iostream>
+  #include "inc/strukture.hpp" 
+  extern "C" int yylex(void);
+  extern int yyparse();
+  extern void yylex_destroy();
+  extern FILE *yyin;
+  void yyerror(std::vector<Linija>& linije, const char *s);    
+  extern int brojLinije;
+%}
+
+%code requires{
+  #include <vector>
+  #include <cstdio>
+  #include <iostream>
+  #include "inc/strukture.hpp" }
+
+
+
+%union{
+  int broj;
+  int reg;
+  char* string;
+  char* simbol;
+  char* labela;
+  Instrukcija instrukcija;
+  Direktiva direktiva;
+  Operand operand;
+  ListaOperanada lista;
+}
+
+%token <broj> TOKEN_BROJ
+%token <reg> TOKEN_REG
+%token <labela> TOKEN_LABELA
+%token <simbol> TOKEN_SIMBOL
+%token <string> TOKEN_STRING
+%token DIREKTIVA_GLOBAL
+%token DIREKTIVA_EXTERN
+%token DIREKTIVA_SECTION
+%token DIREKTIVA_WORD
+%token DIREKTIVA_SKIP
+%token DIREKTIVA_ASCII
+%token DIREKTIVA_END
+
+%token INSTRUKCIJA_HALT
+%token INSTRUKCIJA_INT
+%token INSTRUKCIJA_IRET
+%token INSTRUKCIJA_CALL
+%token INSTRUKCIJA_RET
+%token INSTRUKCIJA_JMP
+%token INSTRUKCIJA_BEQ
+%token INSTRUKCIJA_BNE
+%token INSTRUKCIJA_BGT
+%token INSTRUKCIJA_PUSH
+%token INSTRUKCIJA_XCHG
+%token INSTRUKCIJA_ADD
+%token INSTRUKCIJA_SUB
+%token INSTRUKCIJA_MUL
+%token INSTRUKCIJA_DIV
+%token INSTRUKCIJA_NOT
+%token INSTRUKCIJA_AND
+%token INSTRUKCIJA_OR
+%token INSTRUKCIJA_XOR
+%token INSTRUKCIJA_SHL
+%token INSTRUKCIJA_SHR
+%token INSTRUKCIJA_LD
+%token INSTRUKCIJA_ST
+%token INSTRUKCIJA_CSRRD
+%token INSTRUKCIJA_CSRWR
+%token INSTRUKCIJA_POP
+
+
+%token TOKEN_OZAGRADA
+%token TOKEN_ZZAGRADA
+%token TOKEN_OUGLASTA
+%token TOKEN_ZUGLASTA
+%token TOKEN_PLUS
+%token TOKEN_MINUS
+%token TOKEN_PROCENAT
+%token TOKEN_DOLAR
+%token TOKEN_TACKAZAPETA
+%token TOKEN_DVETACKE
+%token TOKEN_ZAPETA
+%token TOKEN_ZVEZDICA
+%token TOKEN_NOVIRED
+%token TOKEN_KOMENTAR
+
+%type <instrukcija> instrukcija
+%type <direktiva> direktiva
+%type <operand> adresa
+%type <operand> operand
+%type <lista> lista
+%type <lista> lista_word
+%type <operand> word
+
+%parse-param {std::vector<Linija>& linije}
+
+%%
+
+lines
+  : lines line | line;
+
+line: 
+  TOKEN_LABELA instrukcija TOKEN_NOVIRED {Linija l; l.broj=brojLinije; l.labela=$1; l.tip=Linija_Instrukcija; l.podaci.ins=$2; linije.push_back(l);}
+| TOKEN_LABELA direktiva TOKEN_NOVIRED {Linija l; l.broj=brojLinije; l.labela=$1; l.tip=Linija_Direktiva; l.podaci.dir=$2; linije.push_back(l);}
+| TOKEN_LABELA instrukcija TOKEN_KOMENTAR TOKEN_NOVIRED {Linija l; l.broj=brojLinije; l.labela=$1; l.tip=Linija_Instrukcija; l.podaci.ins=$2; linije.push_back(l);}
+| TOKEN_LABELA direktiva TOKEN_KOMENTAR TOKEN_NOVIRED {Linija l; l.broj=brojLinije; l.labela=$1; l.tip=Linija_Direktiva; l.podaci.dir=$2; linije.push_back(l);}
+| instrukcija TOKEN_KOMENTAR TOKEN_NOVIRED {Linija l; l.broj=brojLinije; l.tip=Linija_Instrukcija; l.podaci.ins=$1; linije.push_back(l);}
+| direktiva TOKEN_KOMENTAR TOKEN_NOVIRED {Linija l; l.broj=brojLinije; l.tip=Linija_Direktiva; l.podaci.dir=$1; linije.push_back(l);}
+| instrukcija TOKEN_NOVIRED {Linija l; l.broj=brojLinije; l.tip=Linija_Instrukcija; l.podaci.ins=$1; linije.push_back(l);}
+| direktiva TOKEN_NOVIRED {Linija l; l.broj=brojLinije; l.tip=Linija_Direktiva; l.podaci.dir=$1; linije.push_back(l);}
+| TOKEN_LABELA TOKEN_KOMENTAR TOKEN_NOVIRED {Linija l; l.broj=brojLinije; l.labela=$1; l.tip=Linija_Nebitna; linije.push_back(l);}
+| TOKEN_LABELA TOKEN_NOVIRED {Linija l; l.broj=brojLinije; l.labela=$1; l.tip=Linija_Nebitna; linije.push_back(l);}
+| TOKEN_KOMENTAR TOKEN_NOVIRED 
+| TOKEN_NOVIRED ;
+
+
+instrukcija:
+INSTRUKCIJA_HALT {$$.tip=HALT;}
+| INSTRUKCIJA_INT {$$.tip=INT;}
+| INSTRUKCIJA_IRET {$$.tip=IRET;}
+| INSTRUKCIJA_CALL adresa {$$.tip=CALL; $$.operand=$2;}
+| INSTRUKCIJA_RET {$$.tip=RET;}
+| INSTRUKCIJA_JMP adresa {$$.tip=JMP, $$.operand=$2;}
+| INSTRUKCIJA_BEQ TOKEN_REG TOKEN_ZAPETA TOKEN_REG TOKEN_ZAPETA adresa {$$.tip=BEQ; $$.regS=$2; $$.regD=$4; $$.operand=$6;}
+| INSTRUKCIJA_BNE TOKEN_REG TOKEN_ZAPETA TOKEN_REG TOKEN_ZAPETA adresa {$$.tip=BNE; $$.regS=$2; $$.regD=$4; $$.operand=$6;}
+| INSTRUKCIJA_BGT TOKEN_REG TOKEN_ZAPETA TOKEN_REG TOKEN_ZAPETA adresa {$$.tip=BGT; $$.regS=$2; $$.regD=$4; $$.operand=$6;}
+| INSTRUKCIJA_PUSH TOKEN_REG {$$.tip=PUSH; $$.regS=$2;}
+| INSTRUKCIJA_POP TOKEN_REG {$$.tip=POP; $$.regS=$2;}
+| INSTRUKCIJA_XCHG TOKEN_REG TOKEN_ZAPETA TOKEN_REG {$$.tip=XCHG; $$.regS=$2; $$.regD=$4;}
+| INSTRUKCIJA_ADD TOKEN_REG TOKEN_ZAPETA TOKEN_REG {$$.tip=ADD; $$.regS=$2; $$.regD=$4;}
+| INSTRUKCIJA_SUB TOKEN_REG TOKEN_ZAPETA TOKEN_REG {$$.tip=SUB; $$.regS=$2; $$.regD=$4;}
+| INSTRUKCIJA_MUL TOKEN_REG TOKEN_ZAPETA TOKEN_REG {$$.tip=MUL; $$.regS=$2; $$.regD=$4;}
+| INSTRUKCIJA_DIV TOKEN_REG TOKEN_ZAPETA TOKEN_REG {$$.tip=DIV; $$.regS=$2; $$.regD=$4;}
+| INSTRUKCIJA_NOT TOKEN_REG {$$.tip=NOT; $$.regS=$2;}
+| INSTRUKCIJA_AND TOKEN_REG TOKEN_ZAPETA TOKEN_REG {$$.tip=AND; $$.regS=$2; $$.regD=$4;}
+| INSTRUKCIJA_OR TOKEN_REG TOKEN_ZAPETA TOKEN_REG {$$.tip=OR; $$.regS=$2; $$.regD=$4;}
+| INSTRUKCIJA_XOR TOKEN_REG TOKEN_ZAPETA TOKEN_REG {$$.tip=XOR; $$.regS=$2; $$.regD=$4;}
+| INSTRUKCIJA_SHL TOKEN_REG TOKEN_ZAPETA TOKEN_REG {$$.tip=SHL; $$.regS=$2; $$.regD=$4;}
+| INSTRUKCIJA_SHR TOKEN_REG TOKEN_ZAPETA TOKEN_REG {$$.tip=SHR; $$.regS=$2; $$.regD=$4;}
+| INSTRUKCIJA_LD operand TOKEN_ZAPETA TOKEN_REG {$$.tip=LD; $$.operand=$2; $$.regS=$4;}
+| INSTRUKCIJA_ST TOKEN_REG TOKEN_ZAPETA operand {$$.tip=ST; $$.regS=$2; $$.operand=$4;}
+| INSTRUKCIJA_CSRRD TOKEN_PROCENAT operand TOKEN_ZAPETA TOKEN_REG {$$.tip=CSRRD; $$.operand=$3; $$.regS=$5;}
+| INSTRUKCIJA_CSRWR TOKEN_REG TOKEN_ZAPETA TOKEN_PROCENAT operand {$$.tip=CSRWR; $$.regS=$2; $$.operand=$5;}
+;
+
+direktiva:
+  DIREKTIVA_GLOBAL lista {$$.tip=GLOBAL; $$.unija.operandi=$2;}
+| DIREKTIVA_EXTERN lista {$$.tip=EXTERN; $$.unija.operandi=$2;}
+| DIREKTIVA_SECTION TOKEN_SIMBOL {$$.tip=SEKCIJA; $$.unija.simb=$2;}
+| DIREKTIVA_WORD lista_word {$$.tip=WORD; $$.unija.operandi=$2;}
+| DIREKTIVA_SKIP TOKEN_BROJ {$$.tip=SKIP; $$.unija.broj=$2;}
+| DIREKTIVA_ASCII TOKEN_STRING{$$.tip=ASCII; $$.unija.simb=$2;}
+| DIREKTIVA_END {$$.tip=END;}
+;
+
+operand: 
+TOKEN_BROJ {$$.tip=LITERAL; $$.mem=DIREKTNO_MEMORIJSKO_LITERAL; $$.lit=$1;}
+| TOKEN_SIMBOL {$$.tip=SIMBOL; $$.mem=DIREKTNO_MEMORIJSKO_SIMBOL; $$.simb=$1;}
+| TOKEN_DOLAR TOKEN_BROJ {$$.tip=LITERAL; $$.mem=NEPOSREDNO_LITERAL; $$.lit=$2;}
+| TOKEN_DOLAR TOKEN_SIMBOL {$$.tip=SIMBOL; $$.mem=NEPOSREDNO_SIMBOL; $$.simb=$2;}
+| TOKEN_REG {$$.tip=REGISTAR; $$.mem=DIREKTNO_REGISTARSKO; $$.reg=$1;}
+| TOKEN_OUGLASTA TOKEN_REG TOKEN_ZUGLASTA {$$.tip=REGISTAR; $$.mem=INDIREKTNO_REGISTARSKO; $$.reg=$2;}
+| TOKEN_OUGLASTA TOKEN_REG TOKEN_PLUS TOKEN_BROJ TOKEN_ZUGLASTA {$$.tip=REGISTAR; $$.mem=INDIREKTNO_REGISTARSKO_LITERAL; $$.reg=$2; $$.lit=$4;}
+| TOKEN_OUGLASTA TOKEN_REG TOKEN_PLUS TOKEN_SIMBOL TOKEN_ZUGLASTA {$$.tip=REGISTAR; $$.mem=INDIREKTNO_REGISTARSKO_SIMBOL; $$.reg=$2; $$.simb=$4;}
+;
+
+adresa:
+TOKEN_BROJ {$$.tip=LITERAL; $$.mem=DIREKTNO_MEMORIJSKO_LITERAL; $$.lit=$1;}
+| TOKEN_SIMBOL {$$.tip=SIMBOL; $$.mem=DIREKTNO_MEMORIJSKO_SIMBOL; $$.simb=$1;}
+;
+
+lista:
+lista TOKEN_ZAPETA TOKEN_SIMBOL { $$.broj = $1.broj + 1; $$.operandi = (Operand*)realloc($1.operandi, $$.broj * sizeof(Operand));
+  if($$.operandi==NULL){
+    free($1.operandi);
+  }else{
+    $$.operandi[$$.broj - 1].tip = SIMBOL;
+    $$.operandi[$$.broj - 1].mem= NEPOSREDNO_SIMBOL;
+    $$.operandi[$$.broj - 1].simb = $3;
+  }
+}
+| TOKEN_SIMBOL { $$.broj = 1; $$.operandi = (Operand*)malloc(1 * sizeof(Operand));
+  $$.operandi[0].tip = SIMBOL;
+  $$.operandi[0].mem=NEPOSREDNO_SIMBOL;
+  $$.operandi[0].simb = $1;
+}
+;
+
+lista_word:
+lista_word TOKEN_ZAPETA word {$$.broj= $1.broj + 1; $$.operandi = (Operand*)realloc($1.operandi, $$.broj * sizeof(Operand));
+  if($$.operandi==NULL){
+    free($1.operandi);
+  }else{
+    $$.operandi[$$.broj - 1]=$3;
+  }
+}
+| word {$$.broj = 1; $$.operandi = (Operand*)malloc(1 * sizeof(Operand));
+  $$.operandi[0]=$1;
+}
+;
+
+word:
+TOKEN_BROJ {$$.tip=LITERAL; $$.mem=NEPOSREDNO_LITERAL; $$.lit=$1;}
+| TOKEN_SIMBOL {$$.tip=SIMBOL; $$.mem=NEPOSREDNO_SIMBOL; $$.simb=$1;}
+;
+
+%%
+
+
+
